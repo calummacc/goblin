@@ -12,7 +12,7 @@ func NewGinEngine() *gin.Engine {
 	router := gin.New()
 
 	// For this example, let's add gin.Recovery() to handle panics
-	// router.Use(gin.Recovery())
+	router.Use(gin.Recovery())
 
 	return router
 }

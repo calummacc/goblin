@@ -18,11 +18,6 @@ func NewApp() *fx.App {
 
 // Start/Stop lifecycle hooks
 func startServer(lc fx.Lifecycle, engine *gin.Engine) {
-	engine.Use(gin.Recovery())
-	engine.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{"message": "pong"})
-	})
-
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			fmt.Println("Starting Goblin App...")

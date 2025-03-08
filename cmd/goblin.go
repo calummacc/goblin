@@ -12,7 +12,8 @@ var rootCmd = &cobra.Command{
 	Use:   "goblin",
 	Short: "CLI tool for Goblin Framework",
 	Run: func(cmd *cobra.Command, args []string) {
-		cmd.HelpFunc()(cmd, args) // Hiển thị help nếu không có subcommand
+		// Hiển thị help nếu không có subcommand
+		cmd.Help()
 	},
 }
 
@@ -24,11 +25,22 @@ var newCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		projectName := args[1]
 		fmt.Printf("Creating project %s...\n", projectName)
+		// Thêm logic tạo project
+	},
+}
+
+// Command "run"
+var runCmd = &cobra.Command{
+	Use:   "run",
+	Short: "Run the Goblin application",
+	Run: func(cmd *cobra.Command, args []string) {
+		app := core.NewApp()
+		app.Run()
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(newCmd)
+	rootCmd.AddCommand(newCmd, runCmd) // Thêm các subcommand
 }
 
 func Execute() {
