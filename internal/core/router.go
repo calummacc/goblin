@@ -12,12 +12,7 @@ func NewGinEngine() *gin.Engine {
 	router := gin.New()
 
 	// For this example, let's add gin.Recovery() to handle panics
-	router.Use(gin.Recovery())
-
-	// A basic example route to test the server
-	router.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{"message": "pong"})
-	})
+	// router.Use(gin.Recovery())
 
 	return router
 }

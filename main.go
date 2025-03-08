@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "new" {
+	if len(os.Args) >= 2 {
 		cmd.Execute()
 	} else {
 		app := core.NewApp()

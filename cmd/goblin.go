@@ -11,6 +11,9 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "goblin",
 	Short: "CLI tool for Goblin Framework",
+	Run: func(cmd *cobra.Command, args []string) {
+		cmd.HelpFunc()(cmd, args) // Hiển thị help nếu không có subcommand
+	},
 }
 
 // Command "new"
@@ -21,7 +24,6 @@ var newCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		projectName := args[1]
 		fmt.Printf("Creating project %s...\n", projectName)
-		// TODO: Add scaffolding logic here
 	},
 }
 
@@ -29,7 +31,6 @@ func init() {
 	rootCmd.AddCommand(newCmd)
 }
 
-// Execute CLI
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
