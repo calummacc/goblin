@@ -1,0 +1,38 @@
+package cmd
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/spf13/cobra"
+)
+
+// Root command
+var rootCmd = &cobra.Command{
+	Use:   "goblin",
+	Short: "CLI tool for Goblin Framework",
+}
+
+// Command "new"
+var newCmd = &cobra.Command{
+	Use:   "new [project-name]",
+	Short: "Create a new Goblin project",
+	Args:  cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		projectName := args[1]
+		fmt.Printf("Creating project %s...\n", projectName)
+		// TODO: Add scaffolding logic here
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(newCmd)
+}
+
+// Execute CLI
+func Execute() {
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
