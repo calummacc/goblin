@@ -2,6 +2,7 @@ package goblin
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -19,22 +20,23 @@ type Config struct {
 
 // Application struct
 type Application struct {
-	app             *fx.App
-	done            chan struct{}
+	app              *fx.App
+	done             chan struct{}
 	globalMiddleware *globalMiddleware
+	moduleRegistry   *ModuleRegistry
 }
 
 // New function to create a new Goblin application
 func New(opts ...fx.Option) *Application {
 	app := &Application{
-		done:            make(chan struct{}),
+		done:             make(chan struct{}),
 		globalMiddleware: newGlobalMiddleware(),
 	}
 	baseOptions := fx.Options(
 		fx.Provide(
 			func() *gin.Engine { return gin.Default() },
 			func() Config { return Config{Port: ":8080"} },
-			func() []Controller { return []Controller{} },
+			NewModuleRegistry, // Provide the function to create ModuleRegistry
 		),
 		fx.WithLogger(func() fxevent.Logger {
 			return &fxevent.ConsoleLogger{W: os.Stdout}
@@ -42,6 +44,7 @@ func New(opts ...fx.Option) *Application {
 	)
 
 	allOptions := fx.Options(append([]fx.Option{baseOptions}, opts...)...)
+
 	fxApp := fx.New(
 		allOptions,
 		fx.Invoke(app.registerLifecycleHooks),
@@ -51,7 +54,7 @@ func New(opts ...fx.Option) *Application {
 }
 
 // registerLifecycleHooks function to register lifecycle hooks
-func (app *Application) registerLifecycleHooks(lc fx.Lifecycle, engine *gin.Engine, controllers []Controller, cfg Config) {
+func (app *Application) registerLifecycleHooks(lc fx.Lifecycle, engine *gin.Engine, moduleRegistry *ModuleRegistry, cfg Config) {
 	srv := &http.Server{
 		Addr:         cfg.Port,
 		Handler:      engine,
@@ -61,12 +64,15 @@ func (app *Application) registerLifecycleHooks(lc fx.Lifecycle, engine *gin.Engi
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
+			if err := moduleRegistry.LoadModules(); err != nil {
+				return fmt.Errorf("failed to load modules: %w", err)
+			}
 			registerMiddleware(engine, app.globalMiddleware)
-			RegisterRoutes(engine, controllers)
+			moduleRegistry.RegisterRoutesForModules(engine)
 			log.Printf("Server is listening on %s", cfg.Port)
 			go func() {
 				if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-					log.Printf("Failed to start server: %v", err)
+					log.Printf("failed to start server: %v", err)
 				}
 			}()
 			return nil
@@ -96,7 +102,7 @@ func (a *Application) Stop() {
 	a.app.Stop(context.Background())
 }
 
-// AddGlobalMiddleware adds global middleware to the application.
+// AddGlobalMiddleware function
 func (a *Application) AddGlobalMiddleware(middlewares ...gin.HandlerFunc) {
 	a.globalMiddleware.addMiddlewares(middlewares...)
 }
