@@ -1,34 +1,75 @@
-package core
+package goblin
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
+	"go.uber.org/fx/fxevent"
 )
 
-// NewApp creates the Goblin application
-func GoblinApp() *fx.App {
-	return fx.New(
-		AppModule,
-		fx.Invoke(startServer),
-	)
+// Application core
+type Application struct {
+	app    *fx.App
+	Engine *gin.Engine
 }
 
-// Start/Stop lifecycle hooks
-func startServer(lc fx.Lifecycle, engine *gin.Engine) {
+// Creates a new Goblin application
+func New(opts ...fx.Option) *Application {
+	engine := gin.Default()
+
+	// Base dependencies (Gin engine + Fx logger)
+	baseOptions := fx.Options(
+		fx.Provide(
+			func() *gin.Engine { return engine },
+			func() string {
+				return ":8080" // Default port
+			}),
+		fx.WithLogger(func() fxevent.Logger {
+			return &fxevent.ConsoleLogger{}
+		}),
+	)
+
+	// Combine all options
+	allOptions := fx.Options(append([]fx.Option{baseOptions}, opts...)...)
+
+	// Build Fx app
+	fxApp := fx.New(
+		allOptions,
+		fx.Invoke(registerLifecycleHooks),
+		fx.Invoke(RegisterRoutes), // Use RegisterRoutes in router.go
+	)
+
+	return &Application{
+		app:    fxApp,
+		Engine: engine,
+	}
+}
+
+// Registers server lifecycle hooks
+func registerLifecycleHooks(lc fx.Lifecycle, engine *gin.Engine, port string) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			fmt.Println("Starting Goblin App...")
 			go func() {
-				engine.Run(":8080")
+				if err := engine.Run(port); err != nil {
+					panic(err)
+				}
 			}()
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
-			fmt.Println("Stopping Goblin App...")
+			// Add graceful shutdown logic here
 			return nil
 		},
 	})
+}
+
+// WithPort allows custom port configuration
+func WithPort(port string) fx.Option {
+	return fx.Provide(func() string { return port })
+}
+
+// Starts the application
+func (a *Application) Run() {
+	a.app.Run()
 }
