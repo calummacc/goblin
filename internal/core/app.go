@@ -9,7 +9,7 @@ import (
 )
 
 // NewApp creates the Goblin application
-func NewApp() *fx.App {
+func GoblinApp() *fx.App {
 	return fx.New(
 		AppModule,
 		fx.Invoke(startServer),
