@@ -2,74 +2,101 @@ package goblin
 
 import (
 	"context"
+	"log"
+	"net/http"
+	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 )
 
-// Application core
-type Application struct {
-	app    *fx.App
-	Engine *gin.Engine
+// Config struct
+type Config struct {
+	Port string
 }
 
-// Creates a new Goblin application
-func New(opts ...fx.Option) *Application {
-	engine := gin.Default()
+// Application struct
+type Application struct {
+	app             *fx.App
+	done            chan struct{}
+	globalMiddleware *globalMiddleware
+}
 
-	// Base dependencies (Gin engine + Fx logger)
+// New function to create a new Goblin application
+func New(opts ...fx.Option) *Application {
+	app := &Application{
+		done:            make(chan struct{}),
+		globalMiddleware: newGlobalMiddleware(),
+	}
 	baseOptions := fx.Options(
 		fx.Provide(
-			func() *gin.Engine { return engine },
-			func() string {
-				return ":8080" // Default port
-			}),
+			func() *gin.Engine { return gin.Default() },
+			func() Config { return Config{Port: ":8080"} },
+			func() []Controller { return []Controller{} },
+		),
 		fx.WithLogger(func() fxevent.Logger {
-			return &fxevent.ConsoleLogger{}
+			return &fxevent.ConsoleLogger{W: os.Stdout}
 		}),
 	)
 
-	// Combine all options
 	allOptions := fx.Options(append([]fx.Option{baseOptions}, opts...)...)
-
-	// Build Fx app
 	fxApp := fx.New(
 		allOptions,
-		fx.Invoke(registerLifecycleHooks),
-		fx.Invoke(RegisterRoutes), // Use RegisterRoutes in router.go
+		fx.Invoke(app.registerLifecycleHooks),
 	)
-
-	return &Application{
-		app:    fxApp,
-		Engine: engine,
-	}
+	app.app = fxApp
+	return app
 }
 
-// Registers server lifecycle hooks
-func registerLifecycleHooks(lc fx.Lifecycle, engine *gin.Engine, port string) {
+// registerLifecycleHooks function to register lifecycle hooks
+func (app *Application) registerLifecycleHooks(lc fx.Lifecycle, engine *gin.Engine, controllers []Controller, cfg Config) {
+	srv := &http.Server{
+		Addr:         cfg.Port,
+		Handler:      engine,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
+			registerMiddleware(engine, app.globalMiddleware)
+			RegisterRoutes(engine, controllers)
+			log.Printf("Server is listening on %s", cfg.Port)
 			go func() {
-				if err := engine.Run(port); err != nil {
-					panic(err)
+				if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+					log.Printf("Failed to start server: %v", err)
 				}
 			}()
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
-			// Add graceful shutdown logic here
-			return nil
+			log.Println("Stopping server...")
+			return srv.Shutdown(ctx)
 		},
 	})
 }
 
-// WithPort allows custom port configuration
+// WithPort function to override the default port
 func WithPort(port string) fx.Option {
-	return fx.Provide(func() string { return port })
+	return fx.Replace(Config{Port: port})
 }
 
-// Starts the application
+// Run function to start the application
 func (a *Application) Run() {
-	a.app.Run()
+	if err := a.app.Start(context.Background()); err != nil {
+		log.Fatalf("Failed to start application: %v", err)
+	}
+	<-a.done
+}
+
+// Stop function to stop the application
+func (a *Application) Stop() {
+	a.app.Stop(context.Background())
+}
+
+// AddGlobalMiddleware adds global middleware to the application.
+func (a *Application) AddGlobalMiddleware(middlewares ...gin.HandlerFunc) {
+	a.globalMiddleware.addMiddlewares(middlewares...)
 }
