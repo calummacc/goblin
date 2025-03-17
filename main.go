@@ -5,8 +5,10 @@ import (
 )
 
 func main() {
-	app := goblin.New(
+	app := goblin.NewGoblinApp(
 		goblin.WithPort(":8081"),
 	)
+
+	app.AddGlobalMiddleware()
 	app.Run()
 }

@@ -27,7 +27,7 @@ type Application struct {
 }
 
 // New function to create a new Goblin application
-func New(opts ...fx.Option) *Application {
+func NewGoblinApp(opts ...fx.Option) *Application {
 	app := &Application{
 		done:             make(chan struct{}),
 		globalMiddleware: newGlobalMiddleware(),
