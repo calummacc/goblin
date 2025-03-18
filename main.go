@@ -1,29 +1,34 @@
 // goblin/main.go
+// Package main provides the entry point for the Goblin Framework application.
+// It demonstrates how to set up and run a Goblin application with core modules
+// and feature modules.
 package main
 
 import (
+	"context"
 	"log"
 
-	"github.com/calummacc/goblin/core"
-	"github.com/calummacc/goblin/database"
-	"github.com/calummacc/goblin/events"
-	"github.com/calummacc/goblin/examples/user_module"
-	"github.com/calummacc/goblin/middleware"
-	"github.com/calummacc/goblin/router"
+	"goblin/core"
+	"goblin/database"
+	"goblin/events"
+	"goblin/examples/user_module"
+	"goblin/middleware"
 
 	"github.com/gin-gonic/gin"
-	"go.uber.org/fx"
 )
 
+// main initializes and starts the Goblin application.
+// It creates a new GoblinApp instance with core and feature modules,
+// then starts the server on port 8080.
 func main() {
 	// Create a new Goblin app
 	app := core.NewGoblinApp(core.GoblinAppOptions{
 		Debug: true,
-		Modules: []core.GoblinModule{
+		Modules: []core.Module{
 			// Core modules
-			CoreModule(),
+			NewCoreModule(),
 			// Feature modules
-			user_module.Module(),
+			user_module.NewUserModule(),
 		},
 	})
 
@@ -33,43 +38,73 @@ func main() {
 	}
 }
 
-// CoreModule creates the core module
-func CoreModule() core.GoblinModule {
-	return core.NewModule("CoreModule", fx.Options(
-		// Provide core services
-		fx.Provide(func() *gin.Engine {
-			engine := gin.Default()
-			return engine
-		}),
-		fx.Provide(events.NewEventBus),
-		fx.Provide(func() (*database.ORM, error) {
-			return database.NewORM(database.Config{
-				Driver:   "sqlite",
-				Database: "goblin.db",
-			})
-		}),
-		fx.Provide(database.NewRepository),
-		fx.Provide(database.NewTransactionManager),
-		fx.Provide(router.NewRouter),
+// CoreModule represents the core module of the application.
+// It provides essential services and configurations for the application.
+type CoreModule struct {
+	*core.BaseModule
+}
 
-		// Set up global middleware
-		fx.Invoke(func(engine *gin.Engine) {
-			engine.Use(middleware.Logger())
-			engine.Use(middleware.Recovery())
-		}),
+// NewCoreModule creates and initializes a new core module with essential providers,
+// controllers, and exports. It sets up:
+// - Event bus for event handling
+// - Database ORM and repository
+// - Transaction management
+// - Basic middleware (logging and recovery)
+func NewCoreModule() *CoreModule {
+	module := &CoreModule{}
+	module.BaseModule = core.NewBaseModule(core.ModuleMetadata{
+		Providers: []interface{}{
+			events.NewEventBus,
+			func() (*database.ORM, error) {
+				return database.NewORM()
+			},
+			database.NewRepository,
+			database.NewTransactionManager,
+		},
+		Controllers: []interface{}{
+			func(engine *gin.Engine) {
+				engine.Use(middleware.Logger())
+				engine.Use(middleware.Recovery())
+				// Add a simple ping endpoint for health checks
+				engine.GET("/ping", func(c *gin.Context) {
+					c.JSON(200, gin.H{
+						"message": "pong",
+					})
+				})
+			},
+		},
+		// Export essential providers for use in other modules
+		Exports: []interface{}{
+			events.NewEventBus,
+			database.NewRepository,
+			database.NewTransactionManager,
+		},
+	})
+	return module
+}
 
-		// Auto-migrate database models
-		fx.Invoke(func(orm *database.ORM) {
-			if err := orm.AutoMigrate(&user_module.User{}); err != nil {
-				log.Fatalf("Failed to migrate database: %v", err)
-			}
-		}),
+// OnModuleInit initializes the core module and its resources.
+// This method is called when the application starts up.
+//
+// Parameters:
+//   - ctx: The context for the initialization process
+//
+// Returns:
+//   - error: Any error that occurred during initialization
+func (m *CoreModule) OnModuleInit(ctx context.Context) error {
+	// Initialize core resources (e.g., database connections)
+	return nil
+}
 
-		// Register controllers
-		fx.Invoke(func(router *router.RouterRegistry, userController *user_module.UserController) {
-			for _, route := range userController.Routes() {
-				router.RegisterController(userController.BasePath(), route)
-			}
-		}),
-	))
+// OnModuleDestroy performs cleanup operations for the core module.
+// This method is called when the application is shutting down.
+//
+// Parameters:
+//   - ctx: The context for the cleanup process
+//
+// Returns:
+//   - error: Any error that occurred during cleanup
+func (m *CoreModule) OnModuleDestroy(ctx context.Context) error {
+	// Cleanup core resources
+	return nil
 }
