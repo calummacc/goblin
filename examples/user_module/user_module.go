@@ -5,27 +5,38 @@ import (
 	"context"
 	"goblin/core"
 	"goblin/events"
+
+	"github.com/gin-gonic/gin"
 )
 
-// UserModule represents the user module
+// UserModule represents the user feature module.
+// It provides user-related functionality including user management,
+// authentication, and authorization.
 type UserModule struct {
 	*core.BaseModule
 }
 
-// NewUserModule creates a new user module
+// NewUserModule creates and initializes a new user module with its providers,
+// controllers, and exports. It sets up:
+// - User service for business logic
+// - User controller for HTTP endpoints
+// - User repository for data access
 func NewUserModule() *UserModule {
 	module := &UserModule{}
 	module.BaseModule = core.NewBaseModule(core.ModuleMetadata{
 		Providers: []interface{}{
-			NewUserRepository,
+			// Provide user service
 			NewUserService,
+			// Provide user controller
 			NewUserController,
-			NewUserEventHandler,
 		},
 		Controllers: []interface{}{
-			RegisterEventHandlers,
+			// Register user routes
+			func(engine *gin.Engine, controller *UserController) {
+				controller.RegisterRoutes(engine)
+			},
 		},
-		// Export UserService để các module khác có thể sử dụng
+		// Export user service for use in other modules
 		Exports: []interface{}{
 			NewUserService,
 		},
@@ -33,15 +44,29 @@ func NewUserModule() *UserModule {
 	return module
 }
 
-// OnModuleInit is called when the module is initialized
+// OnModuleInit initializes the user module and its resources.
+// This method is called when the application starts up.
+//
+// Parameters:
+//   - ctx: The context for the initialization process
+//
+// Returns:
+//   - error: Any error that occurred during initialization
 func (m *UserModule) OnModuleInit(ctx context.Context) error {
-	// Khởi tạo module resources (ví dụ: kết nối database)
+	// Initialize user module resources (e.g., database tables)
 	return nil
 }
 
-// OnModuleDestroy is called when the module is destroyed
+// OnModuleDestroy performs cleanup operations for the user module.
+// This method is called when the application is shutting down.
+//
+// Parameters:
+//   - ctx: The context for the cleanup process
+//
+// Returns:
+//   - error: Any error that occurred during cleanup
 func (m *UserModule) OnModuleDestroy(ctx context.Context) error {
-	// Cleanup module resources
+	// Cleanup user module resources
 	return nil
 }
 

@@ -158,6 +158,11 @@ func (g *GoblinApp) Start(port string) error {
 		return fmt.Errorf("failed to start application: %w", err)
 	}
 
+	// Register controller routes
+	if err := g.registerControllerRoutes(); err != nil {
+		return fmt.Errorf("failed to register controller routes: %w", err)
+	}
+
 	// Run application bootstrap hooks
 	if err := g.lifecycleManager.RunAppBootstrap(ctx); err != nil {
 		return fmt.Errorf("failed to run application bootstrap hooks: %w", err)
@@ -273,4 +278,46 @@ func (g *GoblinApp) GetLifecycleManager() *LifecycleManager {
 //   - hook: The function to call during shutdown
 func (g *GoblinApp) RegisterShutdownHook(hook func(ctx context.Context) error) {
 	g.lifecycleManager.RegisterShutdownHook(hook)
+}
+
+// registerControllerRoutes registers routes from all controllers to the Gin router
+func (g *GoblinApp) registerControllerRoutes() error {
+	// Get all controllers from the module manager
+	controllers := g.moduleManager.GetModuleControllers(nil)
+
+	for _, controller := range controllers {
+		if ctrl, ok := controller.(Controller); ok {
+			metadata := ctrl.GetMetadata()
+			if metadata == nil {
+				continue
+			}
+
+			// Create a group for the controller
+			group := g.Engine.Group(metadata.Prefix)
+
+			// Add controller-level middleware
+			if metadata.Middleware != nil {
+				group.Use(metadata.Middleware...)
+			}
+
+			// Register each route
+			for _, route := range metadata.Routes {
+				handlers := make([]gin.HandlerFunc, 0)
+
+				// Add route-level middleware
+				if route.Middleware != nil {
+					handlers = append(handlers, route.Middleware...)
+				}
+
+				// Add the main handler
+				if handler, ok := route.Handler.(gin.HandlerFunc); ok {
+					handlers = append(handlers, handler)
+				}
+
+				// Register the route with Gin
+				group.Handle(route.Method, route.Path, handlers...)
+			}
+		}
+	}
+	return nil
 }

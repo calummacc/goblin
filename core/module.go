@@ -303,24 +303,32 @@ func (m *ModuleManager) GetModuleProviders(module Module) []interface{} {
 }
 
 // GetModuleControllers returns all controllers for a module and its dependencies.
-// This includes the module's own controllers and controllers from dependencies.
+// If module is nil, it returns controllers from all registered modules.
 //
 // Parameters:
-//   - module: The module to get controllers for
+//   - module: The module to get controllers for (can be nil)
 //
 // Returns:
 //   - []interface{}: A list of all controllers
 func (m *ModuleManager) GetModuleControllers(module Module) []interface{} {
-	metadata := module.GetMetadata()
 	controllers := make([]interface{}, 0)
 
-	// Add module's own controllers
-	controllers = append(controllers, metadata.Controllers...)
+	if module != nil {
+		// Get controllers for specific module
+		metadata := module.GetMetadata()
+		controllers = append(controllers, metadata.Controllers...)
 
-	// Add controllers from dependencies
-	for _, imp := range metadata.Imports {
-		impMetadata := imp.GetMetadata()
-		controllers = append(controllers, impMetadata.Controllers...)
+		// Add controllers from dependencies
+		for _, imp := range metadata.Imports {
+			impMetadata := imp.GetMetadata()
+			controllers = append(controllers, impMetadata.Controllers...)
+		}
+	} else {
+		// Get controllers from all registered modules
+		for _, mod := range m.modules {
+			metadata := mod.GetMetadata()
+			controllers = append(controllers, metadata.Controllers...)
+		}
 	}
 
 	return controllers

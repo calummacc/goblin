@@ -9,7 +9,6 @@ import (
 	"log"
 
 	"goblin/core"
-	"goblin/database"
 	"goblin/events"
 	"goblin/examples/user_module"
 	"goblin/middleware"
@@ -55,11 +54,6 @@ func NewCoreModule() *CoreModule {
 	module.BaseModule = core.NewBaseModule(core.ModuleMetadata{
 		Providers: []interface{}{
 			events.NewEventBus,
-			func() (*database.ORM, error) {
-				return database.NewORM()
-			},
-			database.NewRepository,
-			database.NewTransactionManager,
 		},
 		Controllers: []interface{}{
 			func(engine *gin.Engine) {
@@ -76,8 +70,6 @@ func NewCoreModule() *CoreModule {
 		// Export essential providers for use in other modules
 		Exports: []interface{}{
 			events.NewEventBus,
-			database.NewRepository,
-			database.NewTransactionManager,
 		},
 	})
 	return module

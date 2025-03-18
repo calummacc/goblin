@@ -10,6 +10,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// ControllerRegistry stores metadata for all registered controllers
+var ControllerRegistry = make(map[reflect.Type]*ControllerMetadata)
+
 // Route represents a single HTTP route in the application.
 // It defines the HTTP method, path, handler function, and any middleware
 // that should be applied to the route.
@@ -52,9 +55,6 @@ type ControllerMetadata struct {
 	Middleware []gin.HandlerFunc
 }
 
-// controllerRegistry stores metadata for all registered controllers
-var controllerRegistry = make(map[reflect.Type]*ControllerMetadata)
-
 // Controller defines the interface for controllers in the Goblin Framework.
 // Controllers are responsible for handling HTTP requests and defining routes.
 type Controller interface {
@@ -67,6 +67,13 @@ type Controller interface {
 // by custom controllers.
 type BaseController struct {
 	metadata *ControllerMetadata
+}
+
+// NewBaseController creates a new base controller
+func NewBaseController() *BaseController {
+	return &BaseController{
+		metadata: &ControllerMetadata{},
+	}
 }
 
 // GetMetadata returns the metadata for this controller.
@@ -136,7 +143,7 @@ func SetController(prefix string) func(target interface{}) {
 			Guards:     make([]Guard, 0),
 			Middleware: make([]gin.HandlerFunc, 0),
 		}
-		controllerRegistry[t] = metadata
+		ControllerRegistry[t] = metadata
 
 		// If target implements Controller interface, set metadata
 		if ctrl, ok := target.(Controller); ok {
@@ -210,14 +217,14 @@ func Delete(path string, middleware ...gin.HandlerFunc) func(target interface{},
 func route(method string, path string, middleware ...gin.HandlerFunc) func(target interface{}, methodName string) {
 	return func(target interface{}, methodName string) {
 		t := reflect.TypeOf(target)
-		metadata, ok := controllerRegistry[t]
+		metadata, ok := ControllerRegistry[t]
 		if !ok {
 			metadata = &ControllerMetadata{
 				Routes:     make([]RouteMetadata, 0),
 				Guards:     make([]Guard, 0),
 				Middleware: make([]gin.HandlerFunc, 0),
 			}
-			controllerRegistry[t] = metadata
+			ControllerRegistry[t] = metadata
 		}
 
 		// Get method from target
@@ -249,7 +256,7 @@ func route(method string, path string, middleware ...gin.HandlerFunc) func(targe
 func UseGuards(guards ...Guard) func(target interface{}, methodName string) {
 	return func(target interface{}, methodName string) {
 		t := reflect.TypeOf(target)
-		metadata, ok := controllerRegistry[t]
+		metadata, ok := ControllerRegistry[t]
 		if !ok {
 			return
 		}
@@ -281,7 +288,7 @@ func UseGuards(guards ...Guard) func(target interface{}, methodName string) {
 func UseMiddleware(middleware ...gin.HandlerFunc) func(target interface{}, methodName string) {
 	return func(target interface{}, methodName string) {
 		t := reflect.TypeOf(target)
-		metadata, ok := controllerRegistry[t]
+		metadata, ok := ControllerRegistry[t]
 		if !ok {
 			return
 		}
@@ -342,7 +349,7 @@ func NewControllerManager(engine *gin.Engine) *ControllerManager {
 //   - error: Any error that occurred during registration
 func (m *ControllerManager) RegisterController(controller interface{}) error {
 	t := reflect.TypeOf(controller)
-	metadata, ok := controllerRegistry[t]
+	metadata, ok := ControllerRegistry[t]
 	if !ok {
 		return fmt.Errorf("no metadata found for controller %s", t.Name())
 	}

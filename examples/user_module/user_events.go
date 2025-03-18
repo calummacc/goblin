@@ -1,11 +1,15 @@
 // goblin/examples/user_module/user_events.go
 package user_module
 
-import "context"
+import (
+	"context"
+)
 
-// UserCreatedEvent is fired when a user is created
+// UserCreatedEvent represents a user creation event
 type UserCreatedEvent struct {
-	user User
+	ID       uint   `json:"id"`
+	Username string `json:"username"`
+	Email    string `json:"email"`
 }
 
 // Name returns the event name
@@ -13,14 +17,11 @@ func (e *UserCreatedEvent) Name() string {
 	return "user.created"
 }
 
-// User returns the user
-func (e *UserCreatedEvent) User() User {
-	return e.user
-}
-
-// UserUpdatedEvent is fired when a user is updated
+// UserUpdatedEvent represents a user update event
 type UserUpdatedEvent struct {
-	user User
+	ID       uint   `json:"id"`
+	Username string `json:"username"`
+	Email    string `json:"email"`
 }
 
 // Name returns the event name
@@ -28,24 +29,14 @@ func (e *UserUpdatedEvent) Name() string {
 	return "user.updated"
 }
 
-// User returns the user
-func (e *UserUpdatedEvent) User() User {
-	return e.user
-}
-
-// UserDeletedEvent is fired when a user is deleted
+// UserDeletedEvent represents a user deletion event
 type UserDeletedEvent struct {
-	user User
+	ID uint `json:"id"`
 }
 
 // Name returns the event name
 func (e *UserDeletedEvent) Name() string {
 	return "user.deleted"
-}
-
-// User returns the user
-func (e *UserDeletedEvent) User() User {
-	return e.user
 }
 
 // UserEventHandler handles user events

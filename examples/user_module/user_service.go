@@ -2,95 +2,50 @@
 package user_module
 
 import (
-	"errors"
-	"goblin/database"
 	"goblin/events"
 	"strconv"
 
-	"gorm.io/gorm"
+	"github.com/gin-gonic/gin"
 )
 
 // UserService handles user-related business logic
 type UserService struct {
-	repo      *UserRepository
-	eventBus  *events.EventBus
-	txManager *database.TransactionManager
+	// repo     *UserRepository
+	eventBus *events.EventBus
 }
 
 // NewUserService creates a new user service
-func NewUserService(repo *UserRepository, eventBus *events.EventBus, txManager *database.TransactionManager) *UserService {
+func NewUserService(eventBus *events.EventBus) *UserService {
 	return &UserService{
-		repo:      repo,
-		eventBus:  eventBus,
-		txManager: txManager,
+		eventBus: eventBus,
 	}
 }
 
-// GetUsers returns all users
-func (s *UserService) GetUsers() ([]User, error) {
-	return s.repo.FindAll()
+// GetAllUsers returns all users
+func (s *UserService) GetAllUsers() (interface{}, error) {
+	return gin.H{"message": "GetAllUsers"}, nil
 }
 
-// GetUser returns a user by ID
-func (s *UserService) GetUser(id string) (User, error) {
-	idInt, err := strconv.Atoi(id)
-	if err != nil {
-		return User{}, errors.New("invalid user ID")
-	}
-	return s.repo.FindByID(uint(idInt))
+// GetUserByID returns a user by ID
+func (s *UserService) GetUserByID(id uint) (interface{}, error) {
+	return gin.H{"message": "GetUserByID" + strconv.FormatUint(uint64(id), 10)}, nil
 }
 
 // CreateUser creates a new user
-func (s *UserService) CreateUser(user User) (User, error) {
-	var createdUser User
-	err := s.txManager.Transaction(nil, func(tx *gorm.DB) error {
-		var err error
-		createdUser, err = s.repo.Create(user)
-		if err != nil {
-			return err
-		}
-		s.eventBus.Publish(nil, &UserCreatedEvent{user: createdUser})
-		return nil
-	})
-	return createdUser, err
+func (s *UserService) CreateUser() gin.H {
+	s.eventBus.Publish(nil, &UserCreatedEvent{ID: 1, Username: "John Doe", Email: "john.doe@example.com"})
+	return gin.H{"message": "CreateUser"}
 }
 
-// UpdateUser updates a user
-func (s *UserService) UpdateUser(id string, user User) (User, error) {
-	idInt, err := strconv.Atoi(id)
-	if err != nil {
-		return User{}, errors.New("invalid user ID")
-	}
-
-	var updatedUser User
-	err = s.txManager.Transaction(nil, func(tx *gorm.DB) error {
-		var err error
-		updatedUser, err = s.repo.Update(uint(idInt), user)
-		if err != nil {
-			return err
-		}
-		s.eventBus.Publish(nil, &UserUpdatedEvent{user: updatedUser})
-		return nil
-	})
-	return updatedUser, err
+// UpdateUser updates an existing user
+func (s *UserService) UpdateUser(id uint) (interface{}, error) {
+	// Validate user data
+	s.eventBus.Publish(nil, &UserUpdatedEvent{ID: 1, Username: "John Doe", Email: "john.doe@example.com"})
+	return gin.H{"message": "UpdateUser"}, nil
 }
 
 // DeleteUser deletes a user
-func (s *UserService) DeleteUser(id string) error {
-	idInt, err := strconv.Atoi(id)
-	if err != nil {
-		return errors.New("invalid user ID")
-	}
-
-	return s.txManager.Transaction(nil, func(tx *gorm.DB) error {
-		user, err := s.repo.FindByID(uint(idInt))
-		if err != nil {
-			return err
-		}
-		if err := s.repo.Delete(uint(idInt)); err != nil {
-			return err
-		}
-		s.eventBus.Publish(nil, &UserDeletedEvent{user: user})
-		return nil
-	})
+func (s *UserService) DeleteUser(id uint) error {
+	s.eventBus.Publish(nil, &UserDeletedEvent{ID: 1})
+	return nil
 }

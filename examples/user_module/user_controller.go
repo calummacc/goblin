@@ -3,8 +3,10 @@ package user_module
 
 import (
 	"goblin/core"
+	"goblin/errors"
 	ghttp "goblin/http"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -16,100 +18,73 @@ type User struct {
 	Email    string `json:"email"`
 }
 
-// UserController handles user-related endpoints
-// @SetController("/users")
+// UserController handles HTTP requests for user operations
 type UserController struct {
-	core.BaseController
+	*core.BaseController
 	service *UserService
 }
 
 // NewUserController creates a new user controller
 func NewUserController(service *UserService) *UserController {
 	return &UserController{
-		service: service,
+		BaseController: core.NewBaseController(),
+		service:        service,
 	}
 }
 
-// GetUsers returns a list of users
-// @Get("/")
+// RegisterRoutes registers all user routes
+func (c *UserController) RegisterRoutes(router *gin.Engine) {
+	users := router.Group("/users")
+	{
+		users.GET("", c.GetUsers)
+		users.GET("/:id", c.GetUser)
+		users.POST("", c.CreateUser)
+		users.PUT("/:id", c.UpdateUser)
+		users.DELETE("/:id", c.DeleteUser)
+	}
+}
+
 func (c *UserController) GetUsers(ctx *gin.Context) {
-	response := ghttp.NewResponse(ctx)
-	users, err := c.service.GetUsers()
+	users, err := c.service.GetAllUsers()
 	if err != nil {
-		response.Error(http.StatusInternalServerError, "Failed to get users")
+		ctx.Error(err)
 		return
 	}
-	response.Success(users)
+	ctx.JSON(200, users)
 }
 
-// GetUser returns a single user by ID
-// @Get("/:id")
 func (c *UserController) GetUser(ctx *gin.Context) {
 	response := ghttp.NewResponse(ctx)
-	request := ghttp.NewRequest(ctx)
-
-	id := request.GetParam("id")
-	user, err := c.service.GetUser(id)
+	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
 	if err != nil {
-		response.NotFound("User not found")
+		response.Error(http.StatusBadRequest, "Invalid user ID")
 		return
 	}
-	response.Success(user)
+
+	ctx.JSON(200, gin.H{"message": "GetUser" + strconv.FormatUint(uint64(id), 10)})
 }
 
-// CreateUser creates a new user
-// @Post("/")
 func (c *UserController) CreateUser(ctx *gin.Context) {
-	response := ghttp.NewResponse(ctx)
-	request := ghttp.NewRequest(ctx)
-
-	var user User
-	if err := request.GetBody(&user); err != nil {
-		response.BadRequest("Invalid user data")
-		return
-	}
-
-	createdUser, err := c.service.CreateUser(user)
-	if err != nil {
-		response.Error(http.StatusInternalServerError, "Failed to create user")
-		return
-	}
-	response.Created(createdUser)
+	ctx.JSON(201, gin.H{"message": "CreateUser"})
 }
 
-// UpdateUser updates an existing user
-// @Put("/:id")
-// @UseMiddleware(middleware.Auth())
 func (c *UserController) UpdateUser(ctx *gin.Context) {
-	response := ghttp.NewResponse(ctx)
-	request := ghttp.NewRequest(ctx)
-
-	id := request.GetParam("id")
-	var user User
-	if err := request.GetBody(&user); err != nil {
-		response.BadRequest("Invalid user data")
-		return
-	}
-
-	updatedUser, err := c.service.UpdateUser(id, user)
+	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
 	if err != nil {
-		response.Error(http.StatusInternalServerError, "Failed to update user")
+		ctx.Error(errors.NewValidationError("Invalid user ID"))
 		return
 	}
-	response.Success(updatedUser)
+
+	ctx.JSON(200, gin.H{"message": "UpdateUser" + strconv.FormatUint(uint64(id), 10)})
+
 }
 
-// DeleteUser deletes a user
-// @Delete("/:id")
-// @UseMiddleware(middleware.Auth())
 func (c *UserController) DeleteUser(ctx *gin.Context) {
-	response := ghttp.NewResponse(ctx)
-	request := ghttp.NewRequest(ctx)
-
-	id := request.GetParam("id")
-	if err := c.service.DeleteUser(id); err != nil {
-		response.Error(http.StatusInternalServerError, "Failed to delete user")
+	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
+	if err != nil {
+		ctx.Error(errors.NewValidationError("Invalid user ID"))
 		return
 	}
-	response.NoContent()
+
+	ctx.JSON(200, gin.H{"message": "DeleteUser" + strconv.FormatUint(uint64(id), 10)})
 }
