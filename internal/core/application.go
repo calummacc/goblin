@@ -2,11 +2,25 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
 )
+
+type ApplicationOptions struct {
+	Port    int    // Port to run the server on
+	Host    string // Host to run the server on
+	GinMode string // Gin mode (debug, release, test)
+}
+
+// Default options
+var defaultOptions = ApplicationOptions{
+	Port:    8080,
+	Host:    "localhost",
+	GinMode: gin.DebugMode,
+}
 
 type Application struct {
 	mu        sync.RWMutex
@@ -14,14 +28,46 @@ type Application struct {
 	engine    *gin.Engine
 	modules   []Module
 	options   []fx.Option
+	config    ApplicationOptions
 }
 
-func NewApplication() *Application {
+// Option functions for configuration
+func WithPort(port int) func(*ApplicationOptions) {
+	return func(opts *ApplicationOptions) {
+		opts.Port = port
+	}
+}
+
+func WithHost(host string) func(*ApplicationOptions) {
+	return func(opts *ApplicationOptions) {
+		opts.Host = host
+	}
+}
+
+func WithGinMode(mode string) func(*ApplicationOptions) {
+	return func(opts *ApplicationOptions) {
+		opts.GinMode = mode
+	}
+}
+
+func NewGoblinApplication(opts ...func(*ApplicationOptions)) *Application {
+	// Start with default options
+	config := defaultOptions
+
+	// Apply any provided options
+	for _, opt := range opts {
+		opt(&config)
+	}
+
+	// Set Gin mode
+	gin.SetMode(config.GinMode)
+
 	return &Application{
 		container: NewContainer(),
 		engine:    gin.Default(),
 		modules:   make([]Module, 0),
 		options:   make([]fx.Option, 0),
+		config:    config,
 	}
 }
 
@@ -77,7 +123,8 @@ func (app *Application) Run(ctx context.Context) error {
 
 	// Start HTTP server in a goroutine
 	go func() {
-		if err := app.engine.Run(":8080"); err != nil {
+		addr := fmt.Sprintf("%s:%d", app.config.Host, app.config.Port)
+		if err := app.engine.Run(addr); err != nil {
 			errChan <- err
 		}
 	}()
@@ -115,4 +162,19 @@ func (app *Application) registerRoutes() {
 			routeModule.RegisterRoutes(app.engine.Group(""))
 		}
 	}
+}
+
+// GetEngine returns the underlying Gin engine
+func (app *Application) GetEngine() *gin.Engine {
+	return app.engine
+}
+
+// GetContainer returns the dependency container
+func (app *Application) GetContainer() *Container {
+	return app.container
+}
+
+// GetConfig returns the application configuration
+func (app *Application) GetConfig() ApplicationOptions {
+	return app.config
 }
