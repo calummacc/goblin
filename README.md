@@ -1,188 +1,145 @@
 # Goblin Framework
 
-[![GoDoc](https://godoc.org/github.com/calummacc/goblin?status.svg)](https://godoc.org/github.com/calummacc/goblin)  
-[![Go Report Card](https://goreportcard.com/badge/github.com/calummacc/goblin)](https://goreportcard.com/report/github.com/calummacc/goblin)
+Goblin is a lightweight, modular Go framework built on top of Gin and Uber-FX, designed to help developers create scalable and maintainable web applications using clean architecture principles.
 
-**A modular Go framework**, leveraging **Uber's `fx` and `dig`** for dependency injection, lifecycle management, and modularity. Built for building scalable, maintainable web applications with a modern architecture.
+## Features
 
----
+- 🚀 **Modular Architecture**: Easy-to-use module system for organizing your application 
+- 💉 **Dependency Injection**: Built-in DI container powered by Uber-FX
+- 🛠️ **Clean Architecture**: Follows clean architecture principles with Repository, Service, and Controller patterns
+- 🔌 **Middleware Support**: Pre-built middleware for logging, recovery, and error handling
+- ⚙️ **Configuration Management**: Flexible configuration system with JSON support
+- 🔒 **Thread-Safe**: Concurrent-safe operations with proper mutex implementation
+- 📝 **Logging**: Built-in request logging and error tracking
+- 🎯 **Request ID Tracking**: Unique ID generation for request tracing
 
-## Key Features
-
-- **Modular Design**: Structure applications using reusable modules (e.g., `user`, `auth`).
-- **Dependency Injection (DI)**: Powered by **`fx`** (Uber's framework) and **`dig`**, enabling automatic wiring of dependencies.
-- **Router & Middleware**: Built on **Gin** for high-performance HTTP routing and middleware (logging, authentication, error handling).
-- **Lifecycle Hooks**: Manage app startup/shutdown with `fx`-based lifecycle events.
-- **CLI Tool**: Generate projects, modules, controllers, and services with `cobra`.
-- **Extensible Patterns**: Support for Guards, Interceptors, Exception Filters, and Validation (Pipes).
-- **Database Integration**: Optional ORM support via **GORM**.
-
----
-
-## Getting Started
-
-### Installation
+## Installation
 
 ```bash
-go get github.com/calummacc/goblin
+go get github.com/onepiecehung/goblin
 ```
 
-### Create a New Project
+## Quick Start
+
+### 1. Create a new project
 
 ```bash
-goblin new my-goblin-app
-cd my-goblin-app
+mkdir myapp
+cd myapp
+go mod init myapp
 ```
 
-### Run the Application
-
-```bash
-go run main.go
-```
-
-Your app will start on `http://localhost:8485`.
-
----
-
-## Usage Example
-
-### 1. Define a Module
-
-Create a `user` module with a service and controller:
+### 2. Create basic module structure
 
 ```go
-// internal/modules/user/user_service.go
-package user
+// main.go
+package main
 
-type UserService struct {}
-
-func (s *UserService) GetUser() string {
-    return "Hello from UserService!"
-}
-```
-
-```go
-// internal/modules/user/user_controller.go
-package user
-
-import "github.com/gin-gonic/gin"
-
-type UserController struct {}
-
-func (c UserController) GetUserHandler(ctx *gin.Context) {
-    ctx.String(200, "User data")
-}
-```
-
-### 2. Register the Module
-
-```go
-// internal/modules/user/user_module.go
-package user
-
-import "go.uber.org/fx"
-
-var Module = fx.Options(
-    fx.Provide(
-        NewUserService,
-        NewUserController,
-    ),
+import (
+    "context"
+    "github.com/onepiecehung/goblin/internal/core"
+    "log"
 )
-```
 
-### 3. Define Routes
-
-```go
-// internal/core/router.go
-package core
-
-import "github.com/gin-gonic/gin"
-
-func NewGinEngine() *gin.Engine {
-    r := gin.Default()
-    r.GET("/user", func(c *gin.Context) {
-        // Inject UserController here (TODO: Implement DI)
-        c.String(200, "User endpoint")
-    })
-    return r
+func main() {
+    app := core.NewApplication()
+    appModule := NewAppModule()
+    app.AddModule(appModule)
+    app.Configure()
+    
+    if err := app.Run(context.Background()); err != nil {
+        log.Fatal(err)
+    }
 }
 ```
 
----
+### 3. Create a module
 
-## CLI Commands
+```go
+// user/user.module.go
+package user
 
-### Generate a New Project
+type UserModule struct {
+    core.BaseModule
+    controller *Controller
+    service    Service
+    repository Repository
+}
 
-```bash
-goblin new [project-name]
+func (m *UserModule) RegisterRoutes(router *gin.RouterGroup) {
+    users := router.Group("/users")
+    {
+        users.GET("", m.controller.GetUsers)
+        users.POST("", m.controller.CreateUser)
+    }
+}
 ```
-
-### Generate a Module
-
-```bash
-goblin generate module [module-name]
-```
-
-### Generate a Controller/Service
-
-```bash
-goblin generate controller [module-name].user
-goblin generate service [module-name].user
-```
-
----
 
 ## Architecture
 
-### Project Structure
-
 ```
-goblin/
-├── cmd/               # CLI tool (built with Cobra)
+myapp/
+├── cmd/
+│   └── app/
+│       └── main.go
 ├── internal/
-│   ├── core/          # Core framework logic (DI, router, lifecycle)
-│   └── modules/       # Business modules (e.g., user, auth)
-├── examples/          # Example projects
-├── go.mod             # Dependency management
-└── main.go            # Entry point
+│   ├── core/
+│   │   ├── application.go
+│   │   ├── module.go
+│   │   └── container.go
+│   └── middleware/
+│       ├── logger.go
+│       └── recovery.go
+├── pkg/
+│   └── config/
+│       └── config.go
+└── modules/
+    └── user/
+        ├── user.module.go
+        ├── user.controller.go
+        ├── user.service.go
+        ├── user.repository.go
+        └── user.model.go
 ```
 
-### Dependency Injection Flow
+## Middleware
 
-1. **Providers** define objects (services, repositories) via `fx.Provide()`.
-2. **Modules** group providers (e.g., `user.Module`).
-3. **App Module** aggregates all modules in `core/di.go`.
-4. **Lifecycle Hooks** start/stop the app via `fx.Hook`.
+Built-in middleware:
 
----
+- Logger: Request logging
+- Recovery: Panic recovery
+- RequestID: Request tracking
+- ErrorHandler: Centralized error handling
 
-## Roadmap
+## Example
 
-- **Phase 1 (Completed)**: Core skeleton, CLI, DI, router.
-- **Phase 2**: Guards, Interceptors, Exception Filters, GORM integration.
-- **Phase 3**: Performance optimizations (e.g., `fasthttp`), CI/CD, docs.
+Creating a simple user module:
 
----
+```go
+// user/controller.go
+func (c *Controller) GetUsers(ctx *gin.Context) {
+    users, err := c.service.GetAllUsers()
+    if err != nil {
+        ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+    ctx.JSON(http.StatusOK, users)
+}
+```
 
 ## Contributing
 
-1. Fork the repo and create your branch.
-2. Implement features or fixes.
-3. Add tests for new functionality.
-4. Submit a pull request.
-
----
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-MIT License  
-Copyright (c) 2023 Your Name
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
----
+## Author
 
-**Join the Goblin Framework community** on [GitHub Discussions](https://github.com/calummacc/goblin/discussions) or [Slack](https://goblin-framework.slack.com).
+- DS112 (@ds112)
 
----
+## Acknowledgments
 
-Let me know if you need adjustments or additional sections!
+- [Gin Web Framework](https://github.com/gin-gonic/gin)
+- [Uber-FX](https://github.com/uber-go/fx)
